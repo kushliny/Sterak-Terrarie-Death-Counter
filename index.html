@@ -13,7 +13,7 @@
             --twitch-color: #9146FF;
         }
 
-        /* Automatický Dark Mode */
+        /* Dark Mode */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #121212;
@@ -174,7 +174,7 @@
             }
         });
 
-        // Přihlášení a změna UI
+        // změna UI
         window.toggleLogin = () => {
             const form = document.getElementById('login-form');
             form.style.display = form.style.display === 'none' ? 'block' : 'none';
@@ -194,7 +194,7 @@
             const loginContainer = document.getElementById('login-container');
             
             if (user) {
-                // Uživatel je přihlášen
+                // přihlášen
                 adminPanel.style.display = 'block';
                 loginContainer.style.display = 'none';
                 loadRequests(); // Načíst žádosti
@@ -205,7 +205,7 @@
             }
         });
 
-        // 3. Admin funkce: Změna čísla
+        // Změna čísla
         window.updateCounter = async (change) => {
             try {
                 await updateDoc(counterDocRef, {
@@ -246,7 +246,7 @@
             }
         };
 
-        // 5. Načtení žádostí
+        // Načtení žádostí
         async function loadRequests() {
             const q = query(requestsColRef, orderBy("timestamp", "desc"), limit(20));
             const querySnapshot = await getDocs(q);
@@ -261,4 +261,5 @@
         }
     </script>
 </body>
+
 </html>
