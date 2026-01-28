@@ -13,7 +13,7 @@
             --twitch-color: #9146FF;
         }
 
-        /* Automatický Dark Mode podle systému */
+        /* Automatický Dark Mode */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #121212;
@@ -54,7 +54,7 @@
             margin: 1rem 0;
         }
 
-        /* Admin sekce - defaultně skrytá */
+        /* Admin */
         #admin-panel { display: none; margin-top: 20px; border-top: 1px solid #555; padding-top: 20px; }
         
         .btn {
@@ -71,7 +71,7 @@
         .btn-dec { background-color: #f44336; color: white; }
         .btn:active { transform: scale(0.95); }
 
-        /* Login formulář */
+        /* Login */
         #login-form { margin-top: 20px; font-size: 0.8rem; }
         input { padding: 8px; margin: 5px; border-radius: 4px; border: 1px solid #ccc; }
 
@@ -80,7 +80,7 @@
         .request-list { text-align: left; max-height: 200px; overflow-y: auto; margin-top: 10px; font-size: 0.8rem; }
         .request-item { background: rgba(0,0,0,0.05); padding: 5px; margin-bottom: 5px; border-radius: 4px; }
 
-        /* Twitch Ikona dole */
+        /* Twitch Ikona */
         .twitch-link {
             position: fixed;
             bottom: 20px;
@@ -161,11 +161,11 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        // Odkaz na dokument s počítadlem (kolekce "data", dokument "stats")
+        // Odkaz
         const counterDocRef = doc(db, "data", "stats");
         const requestsColRef = collection(db, "requests");
 
-        // 1. Synchronizace počítadla v reálném čase
+        // Synchronizace poč.
         onSnapshot(counterDocRef, (doc) => {
             if (doc.exists()) {
                 document.getElementById("counter").innerText = doc.data().count;
@@ -174,7 +174,7 @@
             }
         });
 
-        // 2. Přihlášení a změna UI
+        // Přihlášení a změna UI
         window.toggleLogin = () => {
             const form = document.getElementById('login-form');
             form.style.display = form.style.display === 'none' ? 'block' : 'none';
@@ -216,14 +216,14 @@
             }
         };
 
-        // 4. Veřejná funkce: Odeslání žádosti (s Rate Limitem)
+        // Odeslání žádosti
         window.sendRequest = async () => {
             const text = document.getElementById('req-text').value;
             const msgBox = document.getElementById('message');
             
             if (!text) return;
 
-            // Klientský Rate Limit (1 minuta na uživatele)
+            // Rate Limit
             const lastPost = localStorage.getItem('lastPostTime');
             const now = Date.now();
             if (lastPost && now - lastPost < 60000) {
@@ -246,7 +246,7 @@
             }
         };
 
-        // 5. Admin funkce: Načtení žádostí
+        // 5. Načtení žádostí
         async function loadRequests() {
             const q = query(requestsColRef, orderBy("timestamp", "desc"), limit(20));
             const querySnapshot = await getDocs(q);
