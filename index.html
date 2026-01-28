@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sterakdary - Počítadlo Smrtí</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --text-color: #333;
+            --card-bg: #fff;
+            --twitch-color: #9146FF;
+        }
+
+        /* Automatický Dark Mode podle systému */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --text-color: #e0e0e0;
+                --card-bg: #1e1e1e;
+            }
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .container {
+            text-align: center;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        h1 { margin-bottom: 0.5rem; }
+
+        .counter {
+            font-size: 5rem;
+            font-weight: bold;
+            color: #ff4444;
+            margin: 1rem 0;
+        }
+
+        /* Admin sekce - defaultně skrytá */
+        #admin-panel { display: none; margin-top: 20px; border-top: 1px solid #555; padding-top: 20px; }
+        
+        .btn {
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            transition: 0.2s;
+        }
+
+        .btn-inc { background-color: #4CAF50; color: white; }
+        .btn-dec { background-color: #f44336; color: white; }
+        .btn:active { transform: scale(0.95); }
+
+        /* Login formulář */
+        #login-form { margin-top: 20px; font-size: 0.8rem; }
+        input { padding: 8px; margin: 5px; border-radius: 4px; border: 1px solid #ccc; }
+
+        /* Žádosti */
+        .request-box { margin-top: 30px; font-size: 0.9rem; }
+        .request-list { text-align: left; max-height: 200px; overflow-y: auto; margin-top: 10px; font-size: 0.8rem; }
+        .request-item { background: rgba(0,0,0,0.05); padding: 5px; margin-bottom: 5px; border-radius: 4px; }
+
+        /* Twitch Ikona dole */
+        .twitch-link {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--twitch-color);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            text-decoration: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        .twitch-link:hover { transform: translateX(-50%) scale(1.1); }
+        
+        #message { color: orange; min-height: 20px; font-size: 0.8rem; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Sterakdary Death Count</h2>
+        <div id="counter" class="counter">Načítám...</div>
+
+        <div class="request-box">
+            <p>Viděl jsi smrt a číslo nesedí?</p>
+            <input type="text" id="req-text" placeholder="Např: aktualne smrti 9 (28.1)">
+            <button class="btn" style="background:#555; color:#fff; font-size:0.9rem" onclick="sendRequest()">Odeslat hlášení</button>
+            <div id="message"></div>
+        </div>
+
+        <div id="login-container">
+            <p style="font-size: 0.7rem; cursor: pointer; color: #888;" onclick="toggleLogin()">Admin Login</p>
+            <div id="login-form" style="display:none;">
+                <input type="email" id="email" placeholder="Email">
+                <input type="password" id="password" placeholder="Heslo">
+                <button onclick="login()">Přihlásit</button>
+            </div>
+        </div>
+
+        <div id="admin-panel">
+            <h3>Ovládání</h3>
+            <button class="btn btn-dec" onclick="updateCounter(-1)">-</button>
+            <button class="btn btn-inc" onclick="updateCounter(1)">+</button>
+            
+            <h4>Žádosti diváků:</h4>
+            <div id="request-list" class="request-list">
+                </div>
+            <button onclick="logout()" style="margin-top:10px; background:transparent; border:1px solid red; color:red; padding:5px;">Odhlásit</button>
+        </div>
+    </div>
+
+    <a href="https://www.twitch.tv/tensterakdary" target="_blank" class="twitch-link" title="Přejít na Twitch">
+        <i class="fab fa-twitch"></i>
+    </a>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, increment, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // !!! FIREBASE !!!
+        const firebaseConfig = {
+            apiKey: "AIzaSyBLLvT7IFZvbQcxvzSatIE9_2MaY3LqdHM",
+            authDomain: "sterak-death-counter.firebaseapp.com",
+            projectId: "sterak-death-counter",
+            storageBucket: "sterak-death-counter.firebasestorage.app",
+            messagingSenderId: "240856530440",
+            appId: "1:240856530440:web:e6dd59eb16d44a72c35bbd"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // Odkaz na dokument s počítadlem (kolekce "data", dokument "stats")
+        const counterDocRef = doc(db, "data", "stats");
+        const requestsColRef = collection(db, "requests");
+
+        // 1. Synchronizace počítadla v reálném čase
+        onSnapshot(counterDocRef, (doc) => {
+            if (doc.exists()) {
+                document.getElementById("counter").innerText = doc.data().count;
+            } else {
+                document.getElementById("counter").innerText = "0";
+            }
+        });
+
+        // 2. Přihlášení a změna UI
+        window.toggleLogin = () => {
+            const form = document.getElementById('login-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        window.login = () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            signInWithEmailAndPassword(auth, email, pass)
+                .catch((error) => alert("Chyba přihlášení: " + error.message));
+        };
+
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, (user) => {
+            const adminPanel = document.getElementById('admin-panel');
+            const loginContainer = document.getElementById('login-container');
+            
+            if (user) {
+                // Uživatel je přihlášen
+                adminPanel.style.display = 'block';
+                loginContainer.style.display = 'none';
+                loadRequests(); // Načíst žádosti
+            } else {
+                // Odhlášen
+                adminPanel.style.display = 'none';
+                loginContainer.style.display = 'block';
+            }
+        });
+
+        // 3. Admin funkce: Změna čísla
+        window.updateCounter = async (change) => {
+            try {
+                await updateDoc(counterDocRef, {
+                    count: increment(change)
+                });
+            } catch (e) {
+                alert("Nemáš práva k úpravě!");
+            }
+        };
+
+        // 4. Veřejná funkce: Odeslání žádosti (s Rate Limitem)
+        window.sendRequest = async () => {
+            const text = document.getElementById('req-text').value;
+            const msgBox = document.getElementById('message');
+            
+            if (!text) return;
+
+            // Klientský Rate Limit (1 minuta na uživatele)
+            const lastPost = localStorage.getItem('lastPostTime');
+            const now = Date.now();
+            if (lastPost && now - lastPost < 60000) {
+                msgBox.innerText = "Počkej chvíli před dalším odesláním (1 min).";
+                return;
+            }
+
+            try {
+                await addDoc(requestsColRef, {
+                    text: text,
+                    timestamp: now
+                });
+                localStorage.setItem('lastPostTime', now);
+                document.getElementById('req-text').value = "";
+                msgBox.innerText = "Žádost odeslána!";
+                setTimeout(() => msgBox.innerText = "", 3000);
+            } catch (e) {
+                console.error(e);
+                msgBox.innerText = "Chyba odeslání (možná limit serveru).";
+            }
+        };
+
+        // 5. Admin funkce: Načtení žádostí
+        async function loadRequests() {
+            const q = query(requestsColRef, orderBy("timestamp", "desc"), limit(20));
+            const querySnapshot = await getDocs(q);
+            const list = document.getElementById("request-list");
+            list.innerHTML = "";
+            
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const date = new Date(data.timestamp).toLocaleTimeString();
+                list.innerHTML += `<div class="request-item"><strong>${date}:</strong> ${data.text}</div>`;
+            });
+        }
+    </script>
+</body>
+</html>
